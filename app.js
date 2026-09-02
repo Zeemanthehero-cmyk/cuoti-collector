@@ -88,6 +88,8 @@ function renderSubjectFilter() {
   sel.innerHTML = '<option value="">全部科目</option>' +
     subjects.map((s) => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
   sel.value = current;
+  $('subject-list').innerHTML = subjects
+    .map((s) => `<option value="${escapeHtml(s)}"></option>`).join('');
 }
 
 function renderList() {

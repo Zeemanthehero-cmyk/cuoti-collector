@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>错题本</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">📒</span>
+      <h1>错题本</h1>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="actions">
+      <button class="btn ghost" id="btn-import">导入</button>
+      <button class="btn ghost" id="btn-export">导出</button>
+      <button class="btn primary" id="btn-add">＋ 新增错题</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="toolbar">
+      <input type="search" id="search" placeholder="搜索题目、答案、标签…" autocomplete="off">
+      <select id="filter-subject"><option value="">全部科目</option></select>
+      <select id="filter-mastery">
+        <option value="">全部掌握度</option>
+        <option value="0">未掌握</option>
+        <option value="1">模糊</option>
+        <option value="2">基本掌握</option>
+        <option value="3">掌握</option>
+        <option value="4">熟练</option>
+      </select>
+      <button class="btn filter" id="filter-due" type="button">今日待复习</button>
+    </section>
+
+    <section class="list" id="list"></section>
+    <div class="empty" id="empty" hidden>
+      <p>还没有错题，点右上角「＋ 新增错题」开始吧 📚</p>
+    </div>
+  </main>
+
+  <!-- 新增/编辑弹窗 -->
+  <div class="modal" id="modal" hidden>
+    <div class="modal-box">
+      <div class="modal-head">
+        <h2 id="modal-title">新增错题</h2>
+        <button class="close" id="btn-close" type="button" aria-label="关闭">×</button>
+      </div>
+      <form id="form" novalidate>
+        <div class="row">
+          <label class="field">科目
+            <input type="text" id="f-subject" list="subject-list" placeholder="如：数学" autocomplete="off">
+            <datalist id="subject-list"></datalist>
+          </label>
+          <label class="field">错因
+            <select id="f-reason">
+              <option value="">选择错因…</option>
+              <option>粗心</option>
+              <option>概念不清</option>
+              <option>不会做</option>
+              <option>看错题</option>
+              <option>计算错误</option>
+              <option>其他</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field">题目
+          <textarea id="f-question" rows="3" placeholder="题目内容…"></textarea>
+        </label>
+
+        <label class="field">正确答案 / 解题要点
+          <textarea id="f-answer" rows="2" placeholder="正确答案、关键步骤…"></textarea>
+        </label>
+
+        <label class="field">错因说明（可选）
+          <textarea id="f-note" rows="2" placeholder="当时怎么错的，以后注意什么…"></textarea>
+        </label>
+
+        <div class="row">
+          <label class="field">掌握程度
+            <select id="f-mastery">
+              <option value="0">未掌握</option>
+              <option value="1">模糊</option>
+              <option value="2">基本掌握</option>
+              <option value="3">掌握</option>
+              <option value="4">熟练</option>
+            </select>
+          </label>
+          <label class="field">标签（逗号分隔）
+            <input type="text" id="f-tags" placeholder="如：函数,易错" autocomplete="off">
+          </label>
+        </div>
+
+        <div class="image-zone">
+          <div class="image-zone-head">
+            <span>题目截图（可选）</span>
+            <span class="hint">在弹窗内直接 Ctrl/Cmd＋V 粘贴，或点下方上传</span>
+          </div>
+          <div class="image-drop" id="image-drop" tabindex="0">
+            <img id="image-preview" alt="截图预览" hidden>
+            <button type="button" class="btn ghost" id="btn-upload">📷 上传图片</button>
+            <button type="button" class="btn ghost danger" id="btn-clear-image" hidden>移除图片</button>
+          </div>
+          <input type="file" id="file-input" accept="image/*" hidden>
+        </div>
+
+        <div class="modal-foot">
+          <button type="button" class="btn ghost" id="btn-cancel">取消</button>
+          <button type="submit" class="btn primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 大图查看 -->
+  <div class="viewer" id="viewer" hidden>
+    <img id="viewer-img" alt="截图大图">
+    <button class="viewer-close" id="viewer-close" type="button" aria-label="关闭">×</button>
+  </div>
+
+  <input type="file" id="import-input" accept="application/json" hidden>
+
+  <script src="app.js"></script>
+</body>
+</html>

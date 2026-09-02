@@ -21,6 +21,7 @@ const form = $('form');
 const viewer = $('viewer');
 const imageDrop = $('image-drop');
 const imagePreview = $('image-preview');
+const btnOcr = $('btn-ocr');
 
 // ===== 工具 =====
 function uid() {
@@ -312,6 +313,7 @@ function openAdd() {
   imagePreview.hidden = true;
   imagePreview.src = '';
   $('btn-clear-image').hidden = true;
+  btnOcr.hidden = true;
   showModal(true);
   $('f-subject').focus();
 }
@@ -333,10 +335,12 @@ function openEdit(id) {
     imagePreview.src = it.image;
     imagePreview.hidden = false;
     $('btn-clear-image').hidden = false;
+    btnOcr.hidden = false;
   } else {
     imagePreview.hidden = true;
     imagePreview.src = '';
     $('btn-clear-image').hidden = true;
+    btnOcr.hidden = true;
   }
   showModal(true);
 }
@@ -370,6 +374,7 @@ function setImage(file) {
     imagePreview.src = dataUrl;
     imagePreview.hidden = false;
     $('btn-clear-image').hidden = false;
+    btnOcr.hidden = false;
   }).catch(() => alert('图片处理失败，请重试。'));
 }
 
@@ -401,6 +406,59 @@ function processImageFile(file) {
 function openViewer(src) {
   $('viewer-img').src = src;
   viewer.hidden = false;
+}
+
+// ===== OCR：从截图识别题目 =====
+let ocrBusy = false;
+
+function loadTesseract() {
+  return new Promise((resolve, reject) => {
+    if (window.Tesseract) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('OCR 库加载失败，请检查网络'));
+    document.head.appendChild(s);
+  });
+}
+
+async function runOCR() {
+  if (ocrBusy) return;
+  const src = pendingImage;
+  if (!src) return;
+  ocrBusy = true;
+  const btn = $('btn-ocr');
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = '加载识别引擎…';
+  let worker;
+  try {
+    await loadTesseract();
+    btn.textContent = '下载中文模型…（首次较慢）';
+    const logger = (m) => {
+      if (m && typeof m.progress === 'number') {
+        btn.textContent = '识别中 ' + Math.round(m.progress * 100) + '%';
+      }
+    };
+    worker = await Tesseract.createWorker(['chi_sim', 'eng'], 1, { logger });
+    const { data } = await worker.recognize(src, { logger });
+    const text = (data && data.text ? data.text : '').trim();
+    if (text) fillQuestion(text);
+    else alert('未识别到文字，请确认图片清晰、且题目是印刷体。手写和复杂公式识别效果有限。');
+  } catch (e) {
+    alert('识别失败：' + (e && e.message ? e.message : e));
+  } finally {
+    if (worker) { try { await worker.terminate(); } catch (_) {} }
+    ocrBusy = false;
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+function fillQuestion(text) {
+  const q = $('f-question');
+  if (q.value.trim()) q.value = q.value.trim() + '\n' + text;
+  else q.value = text;
 }
 
 // ===== 导入 / 导出 =====
@@ -447,6 +505,7 @@ $('btn-clear-image').addEventListener('click', () => {
   imagePreview.hidden = true;
   imagePreview.src = '';
   $('btn-clear-image').hidden = true;
+  btnOcr.hidden = true;
 });
 
 form.addEventListener('submit', (e) => {
@@ -469,6 +528,7 @@ modal.addEventListener('click', (e) => {
 
 // 图片：上传 / 拖拽 / 粘贴
 $('btn-upload').addEventListener('click', () => $('file-input').click());
+btnOcr.addEventListener('click', runOCR);
 $('file-input').addEventListener('change', (e) => {
   if (e.target.files[0]) setImage(e.target.files[0]);
   e.target.value = '';

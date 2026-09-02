@@ -415,7 +415,7 @@ function loadTesseract() {
   return new Promise((resolve, reject) => {
     if (window.Tesseract) return resolve();
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
     s.onload = () => resolve();
     s.onerror = () => reject(new Error('OCR 库加载失败，请检查网络'));
     document.head.appendChild(s);
@@ -435,13 +435,22 @@ async function runOCR() {
   try {
     await loadTesseract();
     btn.textContent = '下载中文模型…（首次较慢）';
+    let lastLog = 0;
     const logger = (m) => {
       if (m && typeof m.progress === 'number') {
-        btn.textContent = '识别中 ' + Math.round(m.progress * 100) + '%';
+        const now = Date.now();
+        if (now - lastLog > 150) {
+          lastLog = now;
+          btn.textContent = '识别中 ' + Math.round(m.progress * 100) + '%';
+        }
       }
     };
-    worker = await Tesseract.createWorker(['chi_sim', 'eng'], 1, { logger });
-    const { data } = await worker.recognize(src, { logger });
+    // cacheMethod: 'none' 跳过 IndexedDB 缓存写入，避免 tesseract.js 缓存损坏导致的卡死
+    worker = await withTimeout(
+      Tesseract.createWorker('chi_sim', 1, { cacheMethod: 'none', logger }),
+      180000, '创建识别引擎超时'
+    );
+    const { data } = await withTimeout(worker.recognize(src), 120000, '识别超时');
     const text = (data && data.text ? data.text : '').trim();
     if (text) fillQuestion(text);
     else alert('未识别到文字，请确认图片清晰、且题目是印刷体。手写和复杂公式识别效果有限。');
@@ -453,6 +462,16 @@ async function runOCR() {
     btn.disabled = false;
     btn.textContent = original;
   }
+}
+
+function withTimeout(promise, ms, msg) {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(msg || '操作超时')), ms);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); }
+    );
+  });
 }
 
 function fillQuestion(text) {

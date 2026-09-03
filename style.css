@@ -78,6 +78,8 @@ html, body {
   border-color: var(--primary);
   color: var(--primary);
 }
+.btn.star { color: #b45309; border-color: #fcd34d; }
+.btn.star.active { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
 
 /* ===== 工具栏 ===== */
 main { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; }
@@ -113,6 +115,7 @@ main { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; }
   padding: 16px 18px;
   box-shadow: var(--shadow);
 }
+.card.starred { border-left: 4px solid #f59e0b; }
 .card-top {
   display: flex;
   align-items: center;
@@ -132,6 +135,7 @@ main { max-width: 860px; margin: 0 auto; padding: 20px 16px 60px; }
 .badge.mastery { color: #fff; }
 .badge.review { background: #fef3c7; color: #b45309; }
 .badge.due { background: #fee2e2; color: var(--danger); }
+.badge.star { background: #fef3c7; color: #92400e; }
 
 .tag {
   display: inline-block;

@@ -8,7 +8,7 @@ const PRESET_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生�
 
 // ===== 状态 =====
 let items = load();
-let filters = { search: '', subject: '', mastery: '', due: false };
+let filters = { search: '', subject: '', mastery: '', due: false, starred: false };
 let editingId = null;
 let pendingImage = null; // 当前表单里暂存的图片 dataURL
 
@@ -101,6 +101,7 @@ function renderList() {
     if (filters.subject && it.subject !== filters.subject) return false;
     if (filters.mastery !== '' && String(it.mastery ?? 0) !== filters.mastery) return false;
     if (filters.due && !(it.nextReviewDate && it.nextReviewDate <= today)) return false;
+    if (filters.starred && !it.starred) return false;
     if (kw) {
       const hay = [it.subject, it.question, it.answer, it.note, (it.tags || []).join(' ')]
         .join(' ').toLowerCase();
@@ -112,7 +113,10 @@ function renderList() {
   if (filters.due) {
     list = list.slice().sort((a, b) => (a.nextReviewDate || '').localeCompare(b.nextReviewDate || ''));
   } else {
-    list = list.slice().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    list = list.slice().sort((a, b) =>
+      ((b.starred ? 1 : 0) - (a.starred ? 1 : 0)) ||
+      ((b.createdAt || 0) - (a.createdAt || 0))
+    );
   }
 
   listEl.innerHTML = '';
@@ -126,7 +130,7 @@ function renderList() {
 function buildCard(it) {
   const today = todayStr();
   const card = document.createElement('div');
-  card.className = 'card';
+  card.className = 'card' + (it.starred ? ' starred' : '');
 
   // 顶部徽章
   const top = document.createElement('div');
@@ -144,6 +148,7 @@ function buildCard(it) {
 
   const reviewCount = it.reviewCount || 0;
   if (reviewCount > 0) top.appendChild(mkBadge(`已复习 ${reviewCount} 次`, 'review'));
+  if (it.starred) top.appendChild(mkBadge('⭐ 重点', 'star'));
 
   card.appendChild(top);
 
@@ -212,6 +217,10 @@ function buildCard(it) {
   spacer.className = 'spacer';
   foot.appendChild(spacer);
 
+  const btnStar = mkBtn(it.starred ? '★ 取消重点' : '☆ 标重点', it.starred ? 'star active' : 'star');
+  btnStar.addEventListener('click', () => toggleStar(it.id));
+  foot.appendChild(btnStar);
+
   const btnReview = mkBtn('复习', 'primary');
   btnReview.addEventListener('click', () => reviewItem(it.id));
   foot.appendChild(btnReview);
@@ -255,6 +264,7 @@ function addItem(data) {
     tags: data.tags,
     mastery: data.mastery,
     image: data.image || null,
+    starred: false,
     createdAt: Date.now(),
     reviewCount: 0,
     nextReviewDate: todayStr(),
@@ -298,6 +308,14 @@ function reviewItem(id) {
   it.reviewCount = n + 1;
   it.lastReviewedAt = Date.now();
   it.nextReviewDate = addDays(todayStr(), interval);
+  save();
+  render();
+}
+
+function toggleStar(id) {
+  const it = items.find((x) => x.id === id);
+  if (!it) return;
+  it.starred = !it.starred;
   save();
   render();
 }
@@ -603,6 +621,11 @@ $('filter-mastery').addEventListener('change', (e) => {
 $('filter-due').addEventListener('click', () => {
   filters.due = !filters.due;
   $('filter-due').classList.toggle('active', filters.due);
+  renderList();
+});
+$('filter-starred').addEventListener('click', () => {
+  filters.starred = !filters.starred;
+  $('filter-starred').classList.toggle('active', filters.starred);
   renderList();
 });
 

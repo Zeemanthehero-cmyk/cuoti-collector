@@ -5,6 +5,8 @@ const MASTERY = ['未掌握', '模糊', '基本掌握', '掌握', '熟练'];
 const MASTERY_COLORS = ['#dc2626', '#ea580c', '#ca8a04', '#16a34a', '#15803d'];
 const INTERVALS = [1, 2, 4, 7, 15, 30, 60]; // 复习间隔（天），按复习次数递增
 const PRESET_SUBJECTS = ['语文', '数学', '英语', '物理', '化学', '生物', '历史', '地理', '政治', '其他'];
+const SETTINGS_KEY = 'cuoti.settings.v1';
+const DEFAULT_MODEL = 'doubao-seed-2-0-lite-260215';
 
 // ===== 状态 =====
 let items = load();
@@ -62,6 +64,19 @@ function load() {
 }
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+}
+function getSettings() {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (raw) {
+      const s = JSON.parse(raw);
+      return { arkApiKey: s.arkApiKey || '', arkModel: s.arkModel || DEFAULT_MODEL };
+    }
+  } catch (e) {}
+  return { arkApiKey: '', arkModel: DEFAULT_MODEL };
+}
+function saveSettings(s) {
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
 }
 
 // ===== 渲染 =====
@@ -448,21 +463,73 @@ async function runOCR() {
   const btn = $('btn-ocr');
   const original = btn.textContent;
   btn.disabled = true;
+  try {
+    if (getSettings().arkApiKey) {
+      await runDoubaoOCR(src, btn);
+    } else {
+      await runTesseractOCR(src, btn);
+    }
+  } catch (e) {
+    alert('识别失败：' + (e && e.message ? e.message : e));
+  } finally {
+    ocrBusy = false;
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function runDoubaoOCR(src, btn) {
+  btn.textContent = '豆包识别中…';
+  const settings = getSettings();
+  const text = await withTimeout(doubaoRecognize(src, settings), 60000, '豆包识别超时');
+  if (text) fillQuestion(text);
+  else alert('豆包未返回文字，请确认 API Key / 模型 ID 正确，或图片清晰。');
+}
+
+async function doubaoRecognize(dataUrl, settings) {
+  const res = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + settings.arkApiKey,
+    },
+    body: JSON.stringify({
+      model: settings.arkModel,
+      messages: [{
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: dataUrl } },
+          { type: 'text', text: '请识别这张图片中的题目内容，只输出题目原文（含公式、选项、空格等），保持原有排版和换行，不要添加任何解释、答案或额外文字。' }
+        ]
+      }]
+    })
+  });
+  if (!res.ok) {
+    let msg = '';
+    try { msg = await res.text(); } catch (_) {}
+    throw new Error('豆包接口错误 ' + res.status + (msg ? '：' + msg.slice(0, 160) : ''));
+  }
+  const data = await res.json();
+  const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  return (content || '').trim();
+}
+
+async function runTesseractOCR(src, btn) {
   btn.textContent = '加载识别引擎…';
+  await loadTesseract();
+  btn.textContent = '下载中文模型…（首次较慢）';
+  let lastLog = 0;
+  const logger = (m) => {
+    if (m && typeof m.progress === 'number') {
+      const now = Date.now();
+      if (now - lastLog > 150) {
+        lastLog = now;
+        btn.textContent = '识别中 ' + Math.round(m.progress * 100) + '%';
+      }
+    }
+  };
   let worker;
   try {
-    await loadTesseract();
-    btn.textContent = '下载中文模型…（首次较慢）';
-    let lastLog = 0;
-    const logger = (m) => {
-      if (m && typeof m.progress === 'number') {
-        const now = Date.now();
-        if (now - lastLog > 150) {
-          lastLog = now;
-          btn.textContent = '识别中 ' + Math.round(m.progress * 100) + '%';
-        }
-      }
-    };
     // cacheMethod: 'none' 跳过 IndexedDB 缓存写入，避免 tesseract.js 缓存损坏导致的卡死
     worker = await withTimeout(
       Tesseract.createWorker('chi_sim', 1, { cacheMethod: 'none', logger }),
@@ -472,13 +539,8 @@ async function runOCR() {
     const text = (data && data.text ? data.text : '').trim();
     if (text) fillQuestion(text);
     else alert('未识别到文字，请确认图片清晰、且题目是印刷体。手写和复杂公式识别效果有限。');
-  } catch (e) {
-    alert('识别失败：' + (e && e.message ? e.message : e));
   } finally {
     if (worker) { try { await worker.terminate(); } catch (_) {} }
-    ocrBusy = false;
-    btn.disabled = false;
-    btn.textContent = original;
   }
 }
 
@@ -535,6 +597,28 @@ function importData(file) {
 
 // ===== 事件绑定 =====
 $('btn-add').addEventListener('click', openAdd);
+
+// ===== 豆包 AI 设置 =====
+function openSettings() {
+  const s = getSettings();
+  $('s-ark-key').value = s.arkApiKey;
+  $('s-ark-model').value = s.arkModel || DEFAULT_MODEL;
+  $('settings-modal').hidden = false;
+}
+$('btn-settings').addEventListener('click', openSettings);
+$('settings-close').addEventListener('click', () => { $('settings-modal').hidden = true; });
+$('settings-cancel').addEventListener('click', () => { $('settings-modal').hidden = true; });
+$('settings-save').addEventListener('click', () => {
+  saveSettings({
+    arkApiKey: $('s-ark-key').value.trim(),
+    arkModel: $('s-ark-model').value.trim() || DEFAULT_MODEL,
+  });
+  $('settings-modal').hidden = true;
+  alert('设置已保存，密钥仅存在本机浏览器，不会上传。');
+});
+$('settings-modal').addEventListener('click', (e) => {
+  if (e.target === $('settings-modal')) $('settings-modal').hidden = true;
+});
 $('btn-close').addEventListener('click', () => showModal(false));
 $('btn-cancel').addEventListener('click', () => showModal(false));
 $('btn-clear-image').addEventListener('click', () => {
@@ -601,6 +685,7 @@ viewer.addEventListener('click', (e) => { if (e.target === viewer) viewer.hidden
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!viewer.hidden) viewer.hidden = true;
+    else if (!$('settings-modal').hidden) $('settings-modal').hidden = true;
     else if (!modal.hidden) showModal(false);
   }
 });

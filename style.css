@@ -289,6 +289,8 @@ details.answer .answer-body {
   gap: 8px;
   padding-top: 6px;
 }
+.settings-body { padding: 8px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+.settings-tip { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.6; }
 
 /* ===== 大图查看 ===== */
 .viewer {

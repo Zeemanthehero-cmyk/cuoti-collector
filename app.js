@@ -70,10 +70,15 @@ function getSettings() {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const s = JSON.parse(raw);
-      return { arkApiKey: s.arkApiKey || '', arkModel: s.arkModel || DEFAULT_MODEL };
+      return {
+        ocrEngine: s.ocrEngine || 'ocrspace',
+        ocrSpaceKey: s.ocrSpaceKey || 'helloworld',
+        arkApiKey: s.arkApiKey || '',
+        arkModel: s.arkModel || DEFAULT_MODEL,
+      };
     }
   } catch (e) {}
-  return { arkApiKey: '', arkModel: DEFAULT_MODEL };
+  return { ocrEngine: 'ocrspace', ocrSpaceKey: 'helloworld', arkApiKey: '', arkModel: DEFAULT_MODEL };
 }
 function saveSettings(s) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
@@ -464,8 +469,11 @@ async function runOCR() {
   const original = btn.textContent;
   btn.disabled = true;
   try {
-    if (getSettings().arkApiKey) {
+    const s = getSettings();
+    if (s.ocrEngine === 'doubao' && s.arkApiKey) {
       await runDoubaoOCR(src, btn);
+    } else if (s.ocrEngine === 'ocrspace') {
+      await runOcrSpaceOCR(src, btn);
     } else {
       await runTesseractOCR(src, btn);
     }
@@ -476,6 +484,36 @@ async function runOCR() {
     btn.disabled = false;
     btn.textContent = original;
   }
+}
+
+async function runOcrSpaceOCR(src, btn) {
+  btn.textContent = 'OCR.space 识别中…';
+  const s = getSettings();
+  const text = await withTimeout(ocrSpaceRecognize(src, s.ocrSpaceKey), 60000, 'OCR.space 识别超时');
+  if (text) fillQuestion(text);
+  else alert('OCR.space 未识别到文字，请确认图片清晰、含文字。');
+}
+
+async function ocrSpaceRecognize(dataUrl, key) {
+  const form = new URLSearchParams();
+  form.append('apikey', key);
+  form.append('language', 'chs');
+  form.append('base64Image', dataUrl);
+  form.append('OCREngine', '2');
+  form.append('scale', 'true');
+  const res = await fetch('https://api.ocr.space/parse/image', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: form.toString(),
+  });
+  if (!res.ok) throw new Error('OCR.space 接口错误 ' + res.status);
+  const data = await res.json();
+  if (data.IsErroredOnProcessing) {
+    const msg = data.ErrorMessage && data.ErrorMessage[0] ? data.ErrorMessage[0] : '处理失败';
+    throw new Error('OCR.space 错误：' + msg);
+  }
+  const text = data && data.ParsedResults && data.ParsedResults[0] && data.ParsedResults[0].ParsedText;
+  return (text || '').trim();
 }
 
 async function runDoubaoOCR(src, btn) {
@@ -601,15 +639,26 @@ $('btn-add').addEventListener('click', openAdd);
 // ===== 豆包 AI 设置 =====
 function openSettings() {
   const s = getSettings();
+  $('s-ocr-engine').value = s.ocrEngine;
+  $('s-ocrspace-key').value = s.ocrSpaceKey;
   $('s-ark-key').value = s.arkApiKey;
   $('s-ark-model').value = s.arkModel || DEFAULT_MODEL;
+  updateSettingsFields();
   $('settings-modal').hidden = false;
 }
+function updateSettingsFields() {
+  const engine = $('s-ocr-engine').value;
+  $('s-ocrspace-box').hidden = engine !== 'ocrspace';
+  $('s-doubao-box').hidden = engine !== 'doubao';
+}
 $('btn-settings').addEventListener('click', openSettings);
+$('s-ocr-engine').addEventListener('change', updateSettingsFields);
 $('settings-close').addEventListener('click', () => { $('settings-modal').hidden = true; });
 $('settings-cancel').addEventListener('click', () => { $('settings-modal').hidden = true; });
 $('settings-save').addEventListener('click', () => {
   saveSettings({
+    ocrEngine: $('s-ocr-engine').value,
+    ocrSpaceKey: $('s-ocrspace-key').value.trim() || 'helloworld',
     arkApiKey: $('s-ark-key').value.trim(),
     arkModel: $('s-ark-model').value.trim() || DEFAULT_MODEL,
   });

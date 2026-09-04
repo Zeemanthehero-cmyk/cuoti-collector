@@ -122,17 +122,32 @@
   <div class="modal" id="settings-modal" hidden>
     <div class="modal-box">
       <div class="modal-head">
-        <h2>⚙️ 豆包 AI 设置</h2>
+        <h2>⚙️ 识别设置</h2>
         <button class="close" id="settings-close" type="button" aria-label="关闭">×</button>
       </div>
       <div class="settings-body">
-        <p class="settings-tip">用豆包视觉模型识别题目（能读手写和公式，比本地 OCR 更准）。密钥只保存在你当前浏览器本地，不会上传到 GitHub。</p>
-        <label class="field">火山方舟 API Key
-          <input type="password" id="s-ark-key" placeholder="粘贴你的 API Key…" autocomplete="off">
+        <p class="settings-tip">选择文字识别引擎。本地 Tesseract 与 OCR.space 均免费；豆包 AI 更准（能读手写和公式）但按量付费。密钥只保存在本机浏览器，不会上传。</p>
+        <label class="field">识别引擎
+          <select id="s-ocr-engine">
+            <option value="ocrspace">OCR.space（免费 API，推荐）</option>
+            <option value="tesseract">本地 Tesseract（免费，无需 Key）</option>
+            <option value="doubao">豆包 AI（付费，更准）</option>
+          </select>
         </label>
-        <label class="field">模型 ID
-          <input type="text" id="s-ark-model" placeholder="如 doubao-seed-2-0-lite-260215 或 ep-xxxx 接入点" autocomplete="off">
-        </label>
+        <div id="s-ocrspace-box" hidden>
+          <label class="field">OCR.space API Key
+            <input type="password" id="s-ocrspace-key" placeholder="免费 Key，可先用 helloworld 测试" autocomplete="off">
+          </label>
+          <p class="settings-tip">免费 Key 在 ocr.space/ocrapi 注册获取，每月约 2.5 万次免费额度，更稳定。</p>
+        </div>
+        <div id="s-doubao-box" hidden>
+          <label class="field">火山方舟 API Key
+            <input type="password" id="s-ark-key" placeholder="粘贴你的 API Key…" autocomplete="off">
+          </label>
+          <label class="field">模型 ID
+            <input type="text" id="s-ark-model" placeholder="如 doubao-seed-2-0-lite-260215 或 ep-xxxx 接入点" autocomplete="off">
+          </label>
+        </div>
         <div class="modal-foot">
           <button type="button" class="btn ghost" id="settings-cancel">取消</button>
           <button type="button" class="btn primary" id="settings-save">保存</button>

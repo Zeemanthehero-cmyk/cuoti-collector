@@ -123,7 +123,7 @@ function renderList() {
     if (filters.due && !(it.nextReviewDate && it.nextReviewDate <= today)) return false;
     if (filters.starred && !it.starred) return false;
     if (kw) {
-      const hay = [it.subject, it.question, it.answer, it.note, (it.tags || []).join(' ')]
+      const hay = [it.subject, it.question, it.answer, it.wrongAnswer, it.note, (it.tags || []).join(' ')]
         .join(' ').toLowerCase();
       if (!hay.includes(kw)) return false;
     }
@@ -190,12 +190,26 @@ function buildCard(it) {
   q.textContent = it.question || '';
   card.appendChild(q);
 
-  // 答案（折叠）
+  // 我的错误答案（折叠）
+  if (it.wrongAnswer) {
+    const det = document.createElement('details');
+    det.className = 'answer wrong';
+    const sum = document.createElement('summary');
+    sum.textContent = '我的错误答案';
+    const body = document.createElement('div');
+    body.className = 'answer-body';
+    body.textContent = it.wrongAnswer;
+    det.appendChild(sum);
+    det.appendChild(body);
+    card.appendChild(det);
+  }
+
+  // 正确答案（折叠）
   if (it.answer) {
     const det = document.createElement('details');
     det.className = 'answer';
     const sum = document.createElement('summary');
-    sum.textContent = '查看答案';
+    sum.textContent = '正确答案';
     const body = document.createElement('div');
     body.className = 'answer-body';
     body.textContent = it.answer;
@@ -279,6 +293,7 @@ function addItem(data) {
     subject: data.subject.trim(),
     question: data.question.trim(),
     answer: data.answer.trim(),
+    wrongAnswer: data.wrongAnswer.trim(),
     reason: data.reason,
     note: data.note.trim(),
     tags: data.tags,
@@ -301,6 +316,7 @@ function updateItem(id, data) {
     subject: data.subject.trim(),
     question: data.question.trim(),
     answer: data.answer.trim(),
+    wrongAnswer: data.wrongAnswer.trim(),
     reason: data.reason,
     note: data.note.trim(),
     tags: data.tags,
@@ -366,6 +382,7 @@ function openEdit(id) {
   $('f-reason').value = it.reason || '';
   $('f-question').value = it.question || '';
   $('f-answer').value = it.answer || '';
+  $('f-wrong').value = it.wrongAnswer || '';
   $('f-note').value = it.note || '';
   $('f-mastery').value = String(it.mastery ?? 0);
   $('f-tags').value = (it.tags || []).join(', ');
@@ -396,6 +413,7 @@ function collectForm() {
     subject: $('f-subject').value,
     question: $('f-question').value,
     answer: $('f-answer').value,
+    wrongAnswer: $('f-wrong').value,
     reason: $('f-reason').value,
     note: $('f-note').value,
     tags: parseTags($('f-tags').value),

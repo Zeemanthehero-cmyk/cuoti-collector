@@ -166,6 +166,8 @@ details.answer .answer-body {
   word-break: break-word;
   font-size: 14px;
 }
+details.answer.wrong summary { color: var(--danger); }
+details.answer.wrong .answer-body { border-left-color: var(--danger); background: #fef2f2; }
 
 .reason { font-size: 13px; color: var(--muted); margin: 6px 0; }
 .reason .why { color: var(--text); }
